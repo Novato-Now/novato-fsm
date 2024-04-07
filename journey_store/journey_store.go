@@ -17,6 +17,10 @@ type JourneyStore[T interface{}] struct {
 	expiryInMinutes int
 }
 
+func NewJourneyStore[T interface{}](redisClient redis.Client, expiryInMinutes int) JourneyStore[T] {
+	return JourneyStore[T]{redisClient: redisClient, expiryInMinutes: expiryInMinutes}
+}
+
 func (js JourneyStore[T]) Create(ctx context.Context, initStateName string) (model.Journey[T], error) {
 	jID := uuid.NewString()
 	journey := model.Journey[T]{
