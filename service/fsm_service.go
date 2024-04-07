@@ -42,7 +42,7 @@ func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 	var journey model.Journey[T]
 	var err error
 	if request.JID == "" {
-		journey, err = fs.journeyStore.Create(ctx, fs.initialStateName)
+		journey, err = fs.journeyStore.Create(ctx)
 		if err != nil {
 			return model.FsmResponse{}, err
 		}
@@ -55,6 +55,38 @@ func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 
 	for {
 		currentStateName := journey.CurrentStage
+		if currentStateName == "" {
+			if request.Event != "Start" {
+				return model.FsmResponse{}, errors.New("invalid journey error: wrong event/ state")
+			}
+			currentStateName = fs.initialStateName
+			currentState, ok := fs.states[currentStateName]
+			if !ok {
+				return model.FsmResponse{}, errors.New("invalid journey error: cannot find current state")
+			}
+			nextAvailableEvents := make(map[string]struct{})
+			for _, nextPossibleEvent := range currentState.NextAvailableEvents {
+				nextAvailableEvents[nextPossibleEvent.Event] = struct{}{}
+			}
+			response, updatedJourneyData, nextEvent, err := currentState.Action.Execute(ctx, journey.JID, journey.Data, request.Data, nextAvailableEvents)
+			if err != nil {
+				// Write rollback logic
+				return model.FsmResponse{}, err
+			}
+			journey.Data = updatedJourneyData.(T)
+			journey.CurrentStage = currentState.Name
+			if currentState.IsCheckpoint {
+				journey.LastCheckpointStage = currentState.Name
+			}
+			err = fs.journeyStore.Save(ctx, journey)
+			if err != nil {
+				// Write rollback logic
+				return model.FsmResponse{}, err
+			}
+			if nextEvent == "TransitionComplete" {
+				return model.FsmResponse{JID: journey.JID, Data: response}, nil
+			}
+		}
 		currentState, ok := fs.states[currentStateName]
 		if !ok {
 			return model.FsmResponse{}, errors.New("invalid journey error: cannot find current state")
