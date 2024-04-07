@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"fsm/model"
 	"time"
+
+	"github.com/thevibegod/fsm/model"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"

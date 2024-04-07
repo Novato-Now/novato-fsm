@@ -1,4 +1,4 @@
-module fsm
+module github.com/thevibegod/fsm
 
 go 1.22.2
 

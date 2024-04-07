@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	journeystore "fsm/journey_store"
-	"fsm/model"
+
+	journeystore "github.com/thevibegod/fsm/journey_store"
+	"github.com/thevibegod/fsm/model"
 )
 
 type FsmService[T interface{}] struct {

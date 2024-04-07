@@ -1,6 +1,6 @@
 package model
 
-import "fsm/action"
+import "github.com/thevibegod/fsm/action"
 
 type FsmState struct {
 	Name                string
