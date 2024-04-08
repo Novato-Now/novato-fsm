@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
+
+	"github.com/thevibegod/fsm/constants"
+	fsmErrors "github.com/thevibegod/fsm/errors"
 
 	journeystore "github.com/thevibegod/fsm/journey_store"
 	"github.com/thevibegod/fsm/model"
@@ -16,21 +18,21 @@ type FsmService[T interface{}] struct {
 	journeyStore     journeystore.JourneyStore[T]
 }
 
-func NewFsmService[T interface{}](initialState model.FsmState, nonInitStates []model.FsmState, journeyStore journeystore.JourneyStore[T]) (FsmService[T], error) {
+func NewFsmService[T interface{}](initialState model.FsmState, nonInitStates []model.FsmState, journeyStore journeystore.JourneyStore[T]) (FsmService[T], *fsmErrors.FsmError) {
 	fsmStateMap := make(map[string]model.FsmState)
 	var finalStateName string
 	for _, state := range nonInitStates {
 		fsmStateMap[state.Name] = state
 		if len(state.NextAvailableEvents) == 0 {
 			if finalStateName != "" {
-				return FsmService[T]{}, errors.New("multiple final states found")
+				return FsmService[T]{}, fsmErrors.InternalSystemError("multiple final states found")
 			}
 			finalStateName = state.Name
 		}
 	}
 
 	if finalStateName == "" {
-		return FsmService[T]{}, errors.New("no final state found")
+		return FsmService[T]{}, fsmErrors.InternalSystemError("no final state found")
 	}
 
 	fsmStateMap[initialState.Name] = initialState
@@ -38,9 +40,9 @@ func NewFsmService[T interface{}](initialState model.FsmState, nonInitStates []m
 	return FsmService[T]{states: fsmStateMap, journeyStore: journeyStore, initialStateName: initialState.Name, finalStateName: finalStateName}, nil
 }
 
-func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (model.FsmResponse, error) {
+func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (model.FsmResponse, *fsmErrors.FsmError) {
 	var journey model.Journey[T]
-	var err error
+	var err *fsmErrors.FsmError
 	if request.JID == "" {
 		journey, err = fs.journeyStore.Create(ctx)
 		if err != nil {
@@ -56,13 +58,13 @@ func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 	for {
 		currentStateName := journey.CurrentStage
 		if currentStateName == "" {
-			if request.Event != "Start" {
-				return model.FsmResponse{}, errors.New("invalid journey error: wrong event/ state")
+			if request.Event != constants.EventNameStart {
+				return model.FsmResponse{}, fsmErrors.ByPassError("invalid journey error: wrong event")
 			}
 			currentStateName = fs.initialStateName
 			currentState, ok := fs.states[currentStateName]
 			if !ok {
-				return model.FsmResponse{}, errors.New("invalid journey error: cannot find current state")
+				return model.FsmResponse{}, fsmErrors.InternalSystemError("cannot find current state")
 			}
 			nextAvailableEvents := make(map[string]struct{})
 			for _, nextPossibleEvent := range currentState.NextAvailableEvents {
@@ -83,13 +85,13 @@ func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 				// Write rollback logic
 				return model.FsmResponse{}, err
 			}
-			if nextEvent == "TransitionComplete" {
+			if nextEvent == constants.EventNameTransitionComplete {
 				return model.FsmResponse{JID: journey.JID, Data: response}, nil
 			}
 		}
 		currentState, ok := fs.states[currentStateName]
 		if !ok {
-			return model.FsmResponse{}, errors.New("invalid journey error: cannot find current state")
+			return model.FsmResponse{}, fsmErrors.InternalSystemError("cannot find current state")
 		}
 
 		event := request.Event
@@ -99,7 +101,7 @@ func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 			if nextAvailableEvent.Event == event {
 				nextState, nextStateFound = fs.states[nextAvailableEvent.DestinationStateName]
 				if !nextStateFound {
-					return model.FsmResponse{}, errors.New("invalid journey error: cannot find next state")
+					return model.FsmResponse{}, fsmErrors.InternalSystemError("cannot find next state")
 				}
 				nextAvailableEvents := make(map[string]struct{})
 				for _, nextPossibleEvent := range nextState.NextAvailableEvents {
@@ -120,13 +122,13 @@ func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 					// Write rollback logic
 					return model.FsmResponse{}, err
 				}
-				if nextEvent == "TransitionComplete" {
+				if nextEvent == constants.EventNameTransitionComplete {
 					return model.FsmResponse{JID: journey.JID, Data: response}, nil
 				}
 			}
 		}
 		if !nextStateFound {
-			return model.FsmResponse{}, fmt.Errorf("invalid journey error: cannot find next state for event %s", request.Event)
+			return model.FsmResponse{}, fsmErrors.ByPassError(fmt.Sprintf("cannot find next state for event %s", request.Event))
 		}
 	}
 }
