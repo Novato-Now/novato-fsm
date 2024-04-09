@@ -66,11 +66,7 @@ func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 			if !ok {
 				return model.FsmResponse{}, fsmErrors.InternalSystemError("cannot find current state")
 			}
-			nextAvailableEvents := make(map[string]struct{})
-			for _, nextPossibleEvent := range currentState.NextAvailableEvents {
-				nextAvailableEvents[nextPossibleEvent.Event] = struct{}{}
-			}
-			response, updatedJourneyData, nextEvent, err := currentState.Action.Execute(ctx, journey.JID, journey.Data, request.Data, nextAvailableEvents)
+			response, updatedJourneyData, nextEvent, err := currentState.Action.Execute(ctx, journey.JID, journey.Data, request.Data)
 			if err != nil {
 				// Write rollback logic
 				return model.FsmResponse{}, err
@@ -103,11 +99,7 @@ func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 				if !nextStateFound {
 					return model.FsmResponse{}, fsmErrors.InternalSystemError("cannot find next state")
 				}
-				nextAvailableEvents := make(map[string]struct{})
-				for _, nextPossibleEvent := range nextState.NextAvailableEvents {
-					nextAvailableEvents[nextPossibleEvent.Event] = struct{}{}
-				}
-				response, updatedJourneyData, nextEvent, err := nextState.Action.Execute(ctx, journey.JID, journey.Data, request.Data, nextAvailableEvents)
+				response, updatedJourneyData, nextEvent, err := nextState.Action.Execute(ctx, journey.JID, journey.Data, request.Data)
 				if err != nil {
 					// Write rollback logic
 					return model.FsmResponse{}, err

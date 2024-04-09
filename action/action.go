@@ -7,5 +7,5 @@ import (
 )
 
 type Action interface {
-	Execute(ctx context.Context, jID string, journeyData interface{}, data interface{}, nextAvailableEvents map[string]struct{}) (response interface{}, updatedJourneyData interface{}, nextEvent string, err *fsmErrors.FsmError)
+	Execute(ctx context.Context, jID string, journeyData interface{}, data interface{}) (response interface{}, updatedJourneyData interface{}, nextEvent string, err *fsmErrors.FsmError)
 }
