@@ -40,87 +40,127 @@ func NewFsmService[T interface{}](initialState model.FsmState, nonInitStates []m
 	return FsmService[T]{states: fsmStateMap, journeyStore: journeyStore, initialStateName: initialState.Name, finalStateName: finalStateName}, nil
 }
 
-func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (model.FsmResponse, *fsmErrors.FsmError) {
+func (fs FsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (response model.FsmResponse, err *fsmErrors.FsmError) {
 	var journey model.Journey[T]
-	var err *fsmErrors.FsmError
-	if request.JID == "" {
-		journey, err = fs.journeyStore.Create(ctx)
-		if err != nil {
-			return model.FsmResponse{}, err
+
+	var currentState, nextState, lastExecutedState model.FsmState
+	var nextStateData interface{}
+	var nextEvent string
+
+	var isNewJourney bool
+	var finishStateTransition bool
+
+	defer func() {
+		if err != nil && isNewJourney {
+			fs.journeyStore.Delete(ctx, journey.JID)
 		}
-	} else {
+	}()
+
+	if request.JID != "" {
 		journey, err = fs.journeyStore.Get(ctx, request.JID)
 		if err != nil {
-			return model.FsmResponse{}, err
+			return
+		}
+		nextStateData = request.Data
+		nextEvent = request.Event
+	} else {
+		isNewJourney = true
+		journey, nextStateData, nextEvent, err = fs.startNewJourney(ctx, request.Data, request.Event)
+		if err != nil {
+			return
+		}
+		lastExecutedState, err = fs.getState(journey.CurrentStage)
+		if err != nil {
+			return
+		}
+		if nextEvent == constants.EventNameTransitionComplete {
+			finishStateTransition = true
 		}
 	}
 
-	for {
-		currentStateName := journey.CurrentStage
-		if currentStateName == "" {
-			if request.Event != constants.EventNameStart {
-				return model.FsmResponse{}, fsmErrors.ByPassError("invalid journey error: wrong event")
-			}
-			currentStateName = fs.initialStateName
-			currentState, ok := fs.states[currentStateName]
-			if !ok {
-				return model.FsmResponse{}, fsmErrors.InternalSystemError("cannot find current state")
-			}
-			response, updatedJourneyData, nextEvent, err := currentState.Action.Execute(ctx, journey.JID, journey.Data, request.Data)
-			if err != nil {
-				// Write rollback logic
-				return model.FsmResponse{}, err
-			}
-			journey.Data = updatedJourneyData.(T)
-			journey.CurrentStage = currentState.Name
-			if currentState.IsCheckpoint {
-				journey.LastCheckpointStage = currentState.Name
-			}
-			err = fs.journeyStore.Save(ctx, journey)
-			if err != nil {
-				// Write rollback logic
-				return model.FsmResponse{}, err
-			}
-			if nextEvent == constants.EventNameTransitionComplete {
-				return model.FsmResponse{JID: journey.JID, Data: response}, nil
-			}
+	for !finishStateTransition {
+		currentState, err = fs.getState(journey.CurrentStage)
+		if err != nil {
+			return
 		}
-		currentState, ok := fs.states[currentStateName]
-		if !ok {
-			return model.FsmResponse{}, fsmErrors.InternalSystemError("cannot find current state")
+		nextState, err = fs.getNextState(currentState, nextEvent)
+		if err != nil {
+			return
 		}
+		journey, nextStateData, nextEvent, err = fs.executeAction(ctx, nextState, journey, nextStateData)
+		if err != nil {
+			return
+		}
+		lastExecutedState = nextState
+		if nextEvent == constants.EventNameTransitionComplete {
+			finishStateTransition = true
+		}
+	}
 
-		event := request.Event
-		var nextState model.FsmState
-		var nextStateFound bool
-		for _, nextAvailableEvent := range currentState.NextAvailableEvents {
-			if nextAvailableEvent.Event == event {
-				nextState, nextStateFound = fs.states[nextAvailableEvent.DestinationStateName]
-				if !nextStateFound {
-					return model.FsmResponse{}, fsmErrors.InternalSystemError("cannot find next state")
-				}
-				response, updatedJourneyData, nextEvent, err := nextState.Action.Execute(ctx, journey.JID, journey.Data, request.Data)
-				if err != nil {
-					// Write rollback logic
-					return model.FsmResponse{}, err
-				}
-				journey.Data = updatedJourneyData.(T)
-				journey.CurrentStage = nextState.Name
-				if nextState.IsCheckpoint {
-					journey.LastCheckpointStage = nextState.Name
-				}
-				err = fs.journeyStore.Save(ctx, journey)
-				if err != nil {
-					// Write rollback logic
-					return model.FsmResponse{}, err
-				}
-				if nextEvent == constants.EventNameTransitionComplete {
-					return model.FsmResponse{JID: journey.JID, Data: response}, nil
-				}
-			}
+	err = fs.journeyStore.Save(ctx, journey)
+	if err != nil {
+		return
+	}
+
+	return fs.loadFsmResponse(journey, lastExecutedState, nextStateData), nil
+}
+
+func (fs FsmService[T]) getState(stateName string) (model.FsmState, *fsmErrors.FsmError) {
+	state, ok := fs.states[stateName]
+	if !ok {
+		return model.FsmState{}, fsmErrors.InternalSystemError("cannot find next state")
+	}
+	return state, nil
+}
+
+func (fs FsmService[T]) getNextState(currentState model.FsmState, event string) (model.FsmState, *fsmErrors.FsmError) {
+	for _, nextAvailableEvent := range currentState.NextAvailableEvents {
+		if nextAvailableEvent.Event == event {
+			return fs.getState(nextAvailableEvent.DestinationStateName)
 		}
-		if !nextStateFound {
-			return model.FsmResponse{}, fsmErrors.ByPassError(fmt.Sprintf("cannot find next state for event %s", request.Event))
-		}
+	}
+	return model.FsmState{}, fsmErrors.ByPassError(fmt.Sprintf("invalid event %s for state %s", event, currentState.Name))
+}
+
+func (fs FsmService[T]) executeAction(ctx context.Context, state model.FsmState, journey model.Journey[T], data interface{}) (model.Journey[T], interface{}, string, *fsmErrors.FsmError) {
+	resp, updatedJourneyData, nextEvent, err := state.Action.Execute(ctx, journey.JID, journey.Data, data)
+	if err != nil {
+		return model.Journey[T]{}, nil, "", err
+	}
+	journey.Data = updatedJourneyData.(T)
+	journey.CurrentStage = state.Name
+	if state.IsCheckpoint {
+		journey.LastCheckpointStage = state.Name
+	}
+	return journey, resp, nextEvent, nil
+}
+
+func (fs FsmService[T]) startNewJourney(ctx context.Context, data interface{}, event string) (model.Journey[T], interface{}, string, *fsmErrors.FsmError) {
+	if event != constants.EventNameStart {
+		return model.Journey[T]{}, nil, "", fsmErrors.ByPassError("invalid journey error: wrong event")
+	}
+	initState, err := fs.getState(fs.initialStateName)
+	if err != nil {
+		return model.Journey[T]{}, nil, "", err
+	}
+	journey, err := fs.journeyStore.Create(ctx)
+	if err != nil {
+		return model.Journey[T]{}, nil, "", err
+	}
+	journey, resp, nextEvent, err := fs.executeAction(ctx, initState, journey, data)
+	if err != nil {
+		fs.journeyStore.Delete(ctx, journey.JID)
+		return model.Journey[T]{}, nil, "", err
+	}
+
+	return journey, resp, nextEvent, nil
+}
+
+func (fs FsmService[T]) loadFsmResponse(journey model.Journey[T], state model.FsmState, response interface{}) model.FsmResponse {
+	return model.FsmResponse{
+		JID:        journey.JID,
+		Data:       response,
+		NextScreen: state.NextScreen,
+		MetaData:   state.MetaData,
 	}
 }

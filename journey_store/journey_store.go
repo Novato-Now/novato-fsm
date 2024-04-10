@@ -68,6 +68,15 @@ func (js JourneyStore[T]) Save(ctx context.Context, journey model.Journey[T]) *f
 	return nil
 }
 
+func (js JourneyStore[T]) Delete(ctx context.Context, jID string) *fsmErrors.FsmError {
+
+	err := js.redisClient.Del(ctx, getJourneyKey(jID)).Err()
+	if err != nil {
+		return fsmErrors.InternalSystemError(err.Error())
+	}
+	return nil
+}
+
 func getJourneyKey(jID string) string {
 	return fmt.Sprintf("FSM_JOURNEY_%s", jID)
 }
