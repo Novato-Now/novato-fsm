@@ -8,7 +8,7 @@ type FsmState struct {
 	NextAvailableEvents []NextAvailableEvent
 	IsCheckpoint        bool
 	NextScreen          string
-	MetaData            interface{}
+	MetaData            any
 }
 
 type NextAvailableEvent struct {
