@@ -2,17 +2,15 @@ package journeystore
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"time"
 
 	fsmErrors "github.com/thevibegod/fsm/errors"
 	"github.com/thevibegod/fsm/model"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 )
+
+var uuidNewString = uuid.NewString
 
 //go:generate mockgen -destination=../mocks/mock_journey_store.go -package=mocks -source=journey_store.go
 
@@ -24,53 +22,42 @@ type JourneyStore[T any] interface {
 }
 
 type journeyStore[T any] struct {
-	redisClient     redis.Client
-	expiryInMinutes int
+	keyValueStore KeyValueStore[T]
 }
 
-func NewJourneyStore[T any](redisClient redis.Client, expiryInMinutes int) JourneyStore[T] {
-	return journeyStore[T]{redisClient: redisClient, expiryInMinutes: expiryInMinutes}
+func NewJourneyStore[T any](keyValueStore KeyValueStore[T]) JourneyStore[T] {
+	return journeyStore[T]{keyValueStore: keyValueStore}
 }
 
 func (js journeyStore[T]) Create(ctx context.Context) (model.Journey[T], *fsmErrors.FsmError) {
-	jID := uuid.NewString()
+	jID := uuidNewString()
 	journey := model.Journey[T]{
 		JID: jID,
 	}
 
-	bytes, _ := json.Marshal(journey)
-
-	err := js.redisClient.Set(ctx, getJourneyKey(jID), string(bytes), time.Duration(js.expiryInMinutes*int(time.Minute))).Err()
+	err := js.keyValueStore.Set(ctx, getJourneyKey(jID), journey)
 	if err != nil {
-		return journey, fsmErrors.InternalSystemError(err.Error())
+		return model.Journey[T]{}, fsmErrors.InternalSystemError(err.Error())
 	}
 	return journey, nil
 }
 
 func (js journeyStore[T]) Get(ctx context.Context, jID string) (model.Journey[T], *fsmErrors.FsmError) {
-	var journey model.Journey[T]
-	journeyString, err := js.redisClient.Get(ctx, getJourneyKey(jID)).Result()
-
-	if errors.Is(err, redis.Nil) {
-		return journey, fsmErrors.ByPassError("journey not found")
-	}
+	journey, err := js.keyValueStore.Get(ctx, getJourneyKey(jID))
 
 	if err != nil {
-		return journey, fsmErrors.InternalSystemError(err.Error())
+		return model.Journey[T]{}, fsmErrors.InternalSystemError(err.Error())
 	}
 
-	err = json.Unmarshal([]byte(journeyString), &journey)
-	if err != nil {
-		return journey, fsmErrors.InternalSystemError(err.Error())
+	if journey == nil {
+		return model.Journey[T]{}, fsmErrors.ByPassError("journey not found")
 	}
 
-	return journey, nil
+	return *journey, nil
 }
 
 func (js journeyStore[T]) Save(ctx context.Context, journey model.Journey[T]) *fsmErrors.FsmError {
-	bytes, _ := json.Marshal(journey)
-
-	err := js.redisClient.Set(ctx, getJourneyKey(journey.JID), string(bytes), time.Duration(js.expiryInMinutes*int(time.Minute))).Err()
+	err := js.keyValueStore.Set(ctx, getJourneyKey(journey.JID), journey)
 	if err != nil {
 		return fsmErrors.InternalSystemError(err.Error())
 	}
@@ -78,8 +65,7 @@ func (js journeyStore[T]) Save(ctx context.Context, journey model.Journey[T]) *f
 }
 
 func (js journeyStore[T]) Delete(ctx context.Context, jID string) *fsmErrors.FsmError {
-
-	err := js.redisClient.Del(ctx, getJourneyKey(jID)).Err()
+	err := js.keyValueStore.Del(ctx, getJourneyKey(jID))
 	if err != nil {
 		return fsmErrors.InternalSystemError(err.Error())
 	}
