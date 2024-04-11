@@ -53,14 +53,7 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 	var nextStateData any
 	var nextEvent string
 
-	var isNewJourney bool
 	var finishStateTransition bool
-
-	defer func() {
-		if err != nil && isNewJourney {
-			_ = fs.journeyStore.Delete(ctx, journey.JID)
-		}
-	}()
 
 	if request.JID != "" {
 		journey, err = fs.journeyStore.Get(ctx, request.JID)
@@ -70,11 +63,15 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 		nextStateData = request.Data
 		nextEvent = request.Event
 	} else {
-		isNewJourney = true
 		journey, nextStateData, nextEvent, err = fs.startNewJourney(ctx, request.Data, request.Event)
 		if err != nil {
 			return
 		}
+		defer func() {
+			if err != nil {
+				_ = fs.journeyStore.Delete(ctx, journey.JID)
+			}
+		}()
 		lastExecutedState, err = fs.getState(journey.CurrentStage)
 		if err != nil {
 			return
@@ -153,9 +150,10 @@ func (fs fsmService[T]) startNewJourney(ctx context.Context, data any, event str
 	if err != nil {
 		return model.Journey[T]{}, nil, "", err
 	}
+	jid := journey.JID
 	journey, resp, nextEvent, err := fs.executeAction(ctx, initState, journey, data)
 	if err != nil {
-		_ = fs.journeyStore.Delete(ctx, journey.JID)
+		_ = fs.journeyStore.Delete(ctx, jid)
 		return model.Journey[T]{}, nil, "", err
 	}
 
