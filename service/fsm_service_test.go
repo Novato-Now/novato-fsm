@@ -611,3 +611,199 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 	suite.Empty(response)
 	suite.Equal(expectedError, err)
 }
+
+func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserResumesJourneyInStateB() {
+	initState := model.FsmState{
+		Name:                "Init",
+		NextScreen:          "InitScreen",
+		StateHandler:        suite.mockStateHandler,
+		IsCheckpoint:        true,
+		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
+	}
+	nonInitStates := []model.FsmState{
+		{
+			Name:                "StateA",
+			StateHandler:        suite.mockStateHandler,
+			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateB"}},
+		},
+		{
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			MetaData:     "some-metadata",
+			IsCheckpoint: true,
+		},
+	}
+
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	suite.Nil(err)
+
+	expectedResponseDataB := struct{ ResponseFieldB bool }{ResponseFieldB: true}
+	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
+	journeyB := model.Journey[testJourneyData]{
+		JID:                 "some-uuid",
+		CurrentStage:        "StateB",
+		LastCheckpointStage: "StateB",
+		Data:                journeyDataB,
+	}
+
+	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyB, nil).Times(1)
+	suite.mockStateHandler.EXPECT().
+		Revisit(suite.ctx, "some-uuid", journeyDataB).
+		Return(expectedResponseDataB, journeyDataB, nil).
+		Times(1)
+	suite.mockJourneyStore.EXPECT().
+		Save(suite.ctx, journeyB).
+		Return(nil).
+		Times(1)
+
+	response, err := service.Execute(suite.ctx, model.FsmRequest{JID: "some-uuid", Event: "Resume"})
+
+	suite.Equal(
+		model.FsmResponse{
+			JID: "some-uuid", NextScreen: "ScreenB", MetaData: "some-metadata", Data: expectedResponseDataB,
+		},
+		response,
+	)
+	suite.Nil(err)
+}
+
+func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserResumesJourneyInStateB_AndStateHandlerReturnsError() {
+	expectedError := fsmErrors.InternalSystemError("some-error")
+	initState := model.FsmState{
+		Name:                "Init",
+		NextScreen:          "InitScreen",
+		StateHandler:        suite.mockStateHandler,
+		IsCheckpoint:        true,
+		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
+	}
+	nonInitStates := []model.FsmState{
+		{
+			Name:                "StateA",
+			StateHandler:        suite.mockStateHandler,
+			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateB"}},
+		},
+		{
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			MetaData:     "some-metadata",
+			IsCheckpoint: true,
+		},
+	}
+
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	suite.Nil(err)
+
+	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
+	journeyB := model.Journey[testJourneyData]{
+		JID:                 "some-uuid",
+		CurrentStage:        "StateB",
+		LastCheckpointStage: "StateB",
+		Data:                journeyDataB,
+	}
+
+	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyB, nil).Times(1)
+	suite.mockStateHandler.EXPECT().
+		Revisit(suite.ctx, "some-uuid", journeyDataB).
+		Return(nil, nil, expectedError).
+		Times(1)
+
+	response, err := service.Execute(suite.ctx, model.FsmRequest{JID: "some-uuid", Event: "Resume"})
+
+	suite.Empty(response)
+	suite.Equal(expectedError, err)
+}
+
+func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserResumesJourneyInStateB_AndStoreSaveFails() {
+	expectedError := fsmErrors.InternalSystemError("some-error")
+	initState := model.FsmState{
+		Name:                "Init",
+		NextScreen:          "InitScreen",
+		StateHandler:        suite.mockStateHandler,
+		IsCheckpoint:        true,
+		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
+	}
+	nonInitStates := []model.FsmState{
+		{
+			Name:                "StateA",
+			StateHandler:        suite.mockStateHandler,
+			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateB"}},
+		},
+		{
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			MetaData:     "some-metadata",
+			IsCheckpoint: true,
+		},
+	}
+
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	suite.Nil(err)
+
+	expectedResponseDataB := struct{ ResponseFieldB bool }{ResponseFieldB: true}
+	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
+	journeyB := model.Journey[testJourneyData]{
+		JID:                 "some-uuid",
+		CurrentStage:        "StateB",
+		LastCheckpointStage: "StateB",
+		Data:                journeyDataB,
+	}
+
+	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyB, nil).Times(1)
+	suite.mockStateHandler.EXPECT().
+		Revisit(suite.ctx, "some-uuid", journeyDataB).
+		Return(expectedResponseDataB, journeyDataB, nil).
+		Times(1)
+	suite.mockJourneyStore.EXPECT().
+		Save(suite.ctx, journeyB).
+		Return(expectedError).
+		Times(1)
+
+	response, err := service.Execute(suite.ctx, model.FsmRequest{JID: "some-uuid", Event: "Resume"})
+
+	suite.Empty(response)
+	suite.Equal(expectedError, err)
+}
+
+func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserResumesJourney_ForInvalidState() {
+	initState := model.FsmState{
+		Name:                "Init",
+		NextScreen:          "InitScreen",
+		StateHandler:        suite.mockStateHandler,
+		IsCheckpoint:        true,
+		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
+	}
+	nonInitStates := []model.FsmState{
+		{
+			Name:                "StateA",
+			StateHandler:        suite.mockStateHandler,
+			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateB"}},
+		},
+		{
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			MetaData:     "some-metadata",
+		},
+	}
+
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	suite.Nil(err)
+
+	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
+	journeyB := model.Journey[testJourneyData]{
+		JID:                 "some-uuid",
+		CurrentStage:        "StateB",
+		LastCheckpointStage: "State",
+		Data:                journeyDataB,
+	}
+
+	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyB, nil).Times(1)
+
+	response, err := service.Execute(suite.ctx, model.FsmRequest{JID: "some-uuid", Event: "Resume"})
+
+	suite.Empty(response)
+	suite.Equal(fsmErrors.InternalSystemError("cannot find next state"), err)
+}

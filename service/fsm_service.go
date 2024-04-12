@@ -60,6 +60,10 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 		if err != nil {
 			return
 		}
+		if request.Event == constants.EventNameResume {
+			response, err = fs.handleResumeJourney(ctx, journey)
+			return
+		}
 		nextStateData = request.Data
 		nextEvent = request.Event
 	} else {
@@ -136,6 +140,35 @@ func (fs fsmService[T]) handleStateVisit(ctx context.Context, state model.FsmSta
 		journey.LastCheckpointStage = state.Name
 	}
 	return journey, resp, nextEvent, nil
+}
+
+func (fs fsmService[T]) handleStateRevisit(ctx context.Context, state model.FsmState, journey model.Journey[T]) (model.Journey[T], any, *fsmErrors.FsmError) {
+	resp, updatedJourneyData, err := state.StateHandler.Revisit(ctx, journey.JID, journey.Data)
+	if err != nil {
+		return model.Journey[T]{}, nil, err
+	}
+	journey.CurrentStage = state.Name
+	if state.IsCheckpoint {
+		journey.LastCheckpointStage = state.Name
+	}
+	journey.Data = updatedJourneyData.(T)
+	return journey, resp, nil
+}
+
+func (fs fsmService[T]) handleResumeJourney(ctx context.Context, journey model.Journey[T]) (model.FsmResponse, *fsmErrors.FsmError) {
+	state, err := fs.getState(journey.LastCheckpointStage)
+	if err != nil {
+		return model.FsmResponse{}, err
+	}
+	journey, resp, err := fs.handleStateRevisit(ctx, state, journey)
+	if err != nil {
+		return model.FsmResponse{}, err
+	}
+	err = fs.journeyStore.Save(ctx, journey)
+	if err != nil {
+		return model.FsmResponse{}, err
+	}
+	return fs.loadFsmResponse(journey, state, resp), nil
 }
 
 func (fs fsmService[T]) startNewJourney(ctx context.Context, data any, event string) (model.Journey[T], any, string, *fsmErrors.FsmError) {
