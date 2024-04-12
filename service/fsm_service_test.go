@@ -21,7 +21,7 @@ type fsmServiceTestSuite struct {
 	suite.Suite
 	mockCtrl         *gomock.Controller
 	mockJourneyStore *mocks.MockJourneyStore[testJourneyData]
-	mockAction       *mocks.MockAction
+	mockStateHandler *mocks.MockStateHandler
 	ctx              context.Context
 }
 
@@ -31,7 +31,7 @@ func TestFsmServiceTestSuite(t *testing.T) {
 
 func (suite *fsmServiceTestSuite) SetupTest() {
 	suite.mockCtrl = gomock.NewController(suite.T())
-	suite.mockAction = mocks.NewMockAction(suite.mockCtrl)
+	suite.mockStateHandler = mocks.NewMockStateHandler(suite.mockCtrl)
 	suite.mockJourneyStore = mocks.NewMockJourneyStore[testJourneyData](suite.mockCtrl)
 	suite.ctx = context.Background()
 }
@@ -39,19 +39,19 @@ func (suite *fsmServiceTestSuite) SetupTest() {
 func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnError_WhenNoFinalStateIsFound() {
 	initState := model.FsmState{
 		Name:                "Init",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
 			Name:                "StateB",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 		},
 	}
@@ -65,18 +65,18 @@ func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnError_WhenNoFina
 func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnError_WhenMultipleFinalStatesAreFound() {
 	initState := model.FsmState{
 		Name:                "Init",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
-			Name:   "StateA",
-			Action: suite.mockAction,
+			Name:         "StateA",
+			StateHandler: suite.mockStateHandler,
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -89,19 +89,19 @@ func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnError_WhenMultip
 func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnNoError_WhenStatesAreValid() {
 	initState := model.FsmState{
 		Name:                "Init",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -115,19 +115,19 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserStarts
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -137,7 +137,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserStarts
 	updatedJourneyData := testJourneyData{InitStateCompleted: true}
 
 	suite.mockJourneyStore.EXPECT().Create(suite.ctx).Return(model.Journey[testJourneyData]{JID: "some-uuid"}, nil).Times(1)
-	suite.mockAction.EXPECT().Execute(suite.ctx, "some-uuid", testJourneyData{}, nil).Return(nil, updatedJourneyData, "TransitionComplete", nil).Times(1)
+	suite.mockStateHandler.EXPECT().Visit(suite.ctx, "some-uuid", testJourneyData{}, nil).Return(nil, updatedJourneyData, "TransitionComplete", nil).Times(1)
 	suite.mockJourneyStore.EXPECT().
 		Save(suite.ctx, model.Journey[testJourneyData]{JID: "some-uuid", CurrentStage: "Init", LastCheckpointStage: "Init", Data: updatedJourneyData}).
 		Return(nil).
@@ -153,19 +153,19 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -184,19 +184,19 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -219,19 +219,19 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -241,7 +241,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 	updatedJourneyData := testJourneyData{InitStateCompleted: true}
 
 	suite.mockJourneyStore.EXPECT().Create(suite.ctx).Return(model.Journey[testJourneyData]{JID: "some-uuid"}, nil).Times(1)
-	suite.mockAction.EXPECT().Execute(suite.ctx, "some-uuid", testJourneyData{}, nil).Return(nil, updatedJourneyData, "TransitionComplete", nil).Times(1)
+	suite.mockStateHandler.EXPECT().Visit(suite.ctx, "some-uuid", testJourneyData{}, nil).Return(nil, updatedJourneyData, "TransitionComplete", nil).Times(1)
 	suite.mockJourneyStore.EXPECT().
 		Save(suite.ctx, model.Journey[testJourneyData]{JID: "some-uuid", CurrentStage: "Init", LastCheckpointStage: "Init", Data: updatedJourneyData}).
 		Return(expectedError).
@@ -254,25 +254,25 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 	suite.Equal(expectedError, err)
 }
 
-func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNewJourneyAndActionReturnsError() {
+func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNewJourneyAndStateHandlerReturnsError() {
 	expectedError := fsmErrors.InternalSystemError("some-error")
 
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -284,8 +284,8 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 		Return(model.Journey[testJourneyData]{JID: "some-uuid"}, nil).
 		Times(1)
 
-	suite.mockAction.EXPECT().
-		Execute(suite.ctx, "some-uuid", testJourneyData{}, nil).
+	suite.mockStateHandler.EXPECT().
+		Visit(suite.ctx, "some-uuid", testJourneyData{}, nil).
 		Return(nil, nil, "", expectedError).
 		Times(1)
 
@@ -301,21 +301,21 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserTransi
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextScreen:          "ScreenA",
 			MetaData:            "some-metadata",
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -340,8 +340,8 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserTransi
 	}
 
 	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journey, nil).Times(1)
-	suite.mockAction.EXPECT().
-		Execute(suite.ctx, "some-uuid", journeyData, request).
+	suite.mockStateHandler.EXPECT().
+		Visit(suite.ctx, "some-uuid", journeyData, request).
 		Return(expectedResponse, expectedJourneyData, "TransitionComplete", nil).
 		Times(1)
 	suite.mockJourneyStore.EXPECT().
@@ -366,21 +366,21 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextScreen:          "ScreenA",
 			MetaData:            "some-metadata",
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -401,21 +401,21 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextScreen:          "ScreenA",
 			MetaData:            "some-metadata",
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:   "StateB",
-			Action: suite.mockAction,
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
 		},
 	}
 
@@ -443,21 +443,21 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserTransi
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:       "StateB",
-			Action:     suite.mockAction,
-			NextScreen: "ScreenB",
-			MetaData:   "some-metadata",
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			MetaData:     "some-metadata",
 		},
 	}
 
@@ -484,12 +484,12 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserTransi
 	}
 
 	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyInit, nil).Times(1)
-	suite.mockAction.EXPECT().
-		Execute(suite.ctx, "some-uuid", journeyDataInit, requestDataA).
+	suite.mockStateHandler.EXPECT().
+		Visit(suite.ctx, "some-uuid", journeyDataInit, requestDataA).
 		Return(expectedResponseDataA, journeyDataA, "INTERNAL_Next", nil).
 		Times(1)
-	suite.mockAction.EXPECT().
-		Execute(suite.ctx, "some-uuid", journeyDataA, expectedResponseDataA).
+	suite.mockStateHandler.EXPECT().
+		Visit(suite.ctx, "some-uuid", journeyDataA, expectedResponseDataA).
 		Return(expectedResponseDataB, journeyDataB, "TransitionComplete", nil).
 		Times(1)
 	suite.mockJourneyStore.EXPECT().
@@ -508,27 +508,27 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserTransi
 	suite.Nil(err)
 }
 
-func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransitionsToStateBFromInit_AndStateBExecuteReturnsError() {
+func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransitionsToStateBFromInit_AndStateBVisitReturnsError() {
 	expectedError := fsmErrors.InternalSystemError("some-error")
 
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateB"}},
 		},
 		{
-			Name:       "StateB",
-			Action:     suite.mockAction,
-			NextScreen: "ScreenB",
-			MetaData:   "some-metadata",
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			MetaData:     "some-metadata",
 		},
 	}
 
@@ -547,12 +547,12 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 	journeyDataA := testJourneyData{InitStateCompleted: true, StateACompleted: true}
 
 	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyInit, nil).Times(1)
-	suite.mockAction.EXPECT().
-		Execute(suite.ctx, "some-uuid", journeyDataInit, requestDataA).
+	suite.mockStateHandler.EXPECT().
+		Visit(suite.ctx, "some-uuid", journeyDataInit, requestDataA).
 		Return(expectedResponseDataA, journeyDataA, "INTERNAL_Next", nil).
 		Times(1)
-	suite.mockAction.EXPECT().
-		Execute(suite.ctx, "some-uuid", journeyDataA, expectedResponseDataA).
+	suite.mockStateHandler.EXPECT().
+		Visit(suite.ctx, "some-uuid", journeyDataA, expectedResponseDataA).
 		Return(nil, nil, "", expectedError).
 		Times(1)
 
@@ -568,21 +568,21 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 	initState := model.FsmState{
 		Name:                "Init",
 		NextScreen:          "InitScreen",
-		Action:              suite.mockAction,
+		StateHandler:        suite.mockStateHandler,
 		IsCheckpoint:        true,
 		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
 	}
 	nonInitStates := []model.FsmState{
 		{
 			Name:                "StateA",
-			Action:              suite.mockAction,
+			StateHandler:        suite.mockStateHandler,
 			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateC"}},
 		},
 		{
-			Name:       "StateB",
-			Action:     suite.mockAction,
-			NextScreen: "ScreenB",
-			MetaData:   "some-metadata",
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			MetaData:     "some-metadata",
 		},
 	}
 
@@ -601,8 +601,8 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 	journeyDataA := testJourneyData{InitStateCompleted: true, StateACompleted: true}
 
 	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyInit, nil).Times(1)
-	suite.mockAction.EXPECT().
-		Execute(suite.ctx, "some-uuid", journeyDataInit, requestDataA).
+	suite.mockStateHandler.EXPECT().
+		Visit(suite.ctx, "some-uuid", journeyDataInit, requestDataA).
 		Return(expectedResponseDataA, journeyDataA, "INTERNAL_Next", nil).
 		Times(1)
 

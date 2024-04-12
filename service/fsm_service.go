@@ -90,7 +90,7 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 		if err != nil {
 			return
 		}
-		journey, nextStateData, nextEvent, err = fs.executeAction(ctx, nextState, journey, nextStateData)
+		journey, nextStateData, nextEvent, err = fs.handleStateVisit(ctx, nextState, journey, nextStateData)
 		if err != nil {
 			return
 		}
@@ -125,8 +125,8 @@ func (fs fsmService[T]) getNextState(currentState model.FsmState, event string) 
 	return model.FsmState{}, fsmErrors.ByPassError(fmt.Sprintf("invalid event %s for state %s", event, currentState.Name))
 }
 
-func (fs fsmService[T]) executeAction(ctx context.Context, state model.FsmState, journey model.Journey[T], data any) (model.Journey[T], any, string, *fsmErrors.FsmError) {
-	resp, updatedJourneyData, nextEvent, err := state.Action.Execute(ctx, journey.JID, journey.Data, data)
+func (fs fsmService[T]) handleStateVisit(ctx context.Context, state model.FsmState, journey model.Journey[T], data any) (model.Journey[T], any, string, *fsmErrors.FsmError) {
+	resp, updatedJourneyData, nextEvent, err := state.StateHandler.Visit(ctx, journey.JID, journey.Data, data)
 	if err != nil {
 		return model.Journey[T]{}, nil, "", err
 	}
@@ -151,7 +151,7 @@ func (fs fsmService[T]) startNewJourney(ctx context.Context, data any, event str
 		return model.Journey[T]{}, nil, "", err
 	}
 	jid := journey.JID
-	journey, resp, nextEvent, err := fs.executeAction(ctx, initState, journey, data)
+	journey, resp, nextEvent, err := fs.handleStateVisit(ctx, initState, journey, data)
 	if err != nil {
 		_ = fs.journeyStore.Delete(ctx, jid)
 		return model.Journey[T]{}, nil, "", err
