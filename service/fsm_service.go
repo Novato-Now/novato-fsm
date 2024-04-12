@@ -64,6 +64,10 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 			response, err = fs.handleResumeJourney(ctx, journey)
 			return
 		}
+		if request.Event == constants.EventNameBack {
+			response, err = fs.handleBackJourney(ctx, journey)
+			return
+		}
 		nextStateData = request.Data
 		nextEvent = request.Event
 	} else {
@@ -160,15 +164,19 @@ func (fs fsmService[T]) handleResumeJourney(ctx context.Context, journey model.J
 	if err != nil {
 		return model.FsmResponse{}, err
 	}
-	journey, resp, err := fs.handleStateRevisit(ctx, state, journey)
+	return fs.revisitAndSave(ctx, journey, state)
+}
+
+func (fs fsmService[T]) handleBackJourney(ctx context.Context, journey model.Journey[T]) (model.FsmResponse, *fsmErrors.FsmError) {
+	state, err := fs.getState(journey.CurrentStage)
 	if err != nil {
 		return model.FsmResponse{}, err
 	}
-	err = fs.journeyStore.Save(ctx, journey)
+	nextState, err := fs.getNextState(state, constants.EventNameBack)
 	if err != nil {
 		return model.FsmResponse{}, err
 	}
-	return fs.loadFsmResponse(journey, state, resp), nil
+	return fs.revisitAndSave(ctx, journey, nextState)
 }
 
 func (fs fsmService[T]) startNewJourney(ctx context.Context, data any, event string) (model.Journey[T], any, string, *fsmErrors.FsmError) {
@@ -191,6 +199,18 @@ func (fs fsmService[T]) startNewJourney(ctx context.Context, data any, event str
 	}
 
 	return journey, resp, nextEvent, nil
+}
+
+func (fs fsmService[T]) revisitAndSave(ctx context.Context, journey model.Journey[T], state model.FsmState) (model.FsmResponse, *fsmErrors.FsmError) {
+	journey, resp, err := fs.handleStateRevisit(ctx, state, journey)
+	if err != nil {
+		return model.FsmResponse{}, err
+	}
+	err = fs.journeyStore.Save(ctx, journey)
+	if err != nil {
+		return model.FsmResponse{}, err
+	}
+	return fs.loadFsmResponse(journey, state, resp), nil
 }
 
 func (fs fsmService[T]) loadFsmResponse(journey model.Journey[T], state model.FsmState, response any) model.FsmResponse {

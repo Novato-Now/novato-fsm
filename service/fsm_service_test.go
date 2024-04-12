@@ -807,3 +807,182 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserResumesJ
 	suite.Empty(response)
 	suite.Equal(fsmErrors.InternalSystemError("cannot find next state"), err)
 }
+
+func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserGoesBackToStateAFromStateB() {
+	initState := model.FsmState{
+		Name:                "Init",
+		NextScreen:          "InitScreen",
+		StateHandler:        suite.mockStateHandler,
+		IsCheckpoint:        true,
+		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
+	}
+	nonInitStates := []model.FsmState{
+		{
+			Name:                "StateA",
+			StateHandler:        suite.mockStateHandler,
+			NextScreen:          "ScreenA",
+			MetaData:            "some-metadata",
+			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateB"}},
+		},
+		{
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			IsCheckpoint: true,
+			NextAvailableEvents: []model.NextAvailableEvent{
+				{Event: "Back", DestinationStateName: "StateA"},
+				{Event: "Next", DestinationStateName: "StateC"},
+			},
+		},
+		{
+			Name:         "StateC",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenC",
+		},
+	}
+
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	suite.Nil(err)
+
+	expectedResponseDataA := struct{ ResponseFieldA bool }{ResponseFieldA: true}
+	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
+	journeyB := model.Journey[testJourneyData]{
+		JID:                 "some-uuid",
+		CurrentStage:        "StateB",
+		LastCheckpointStage: "StateB",
+		Data:                journeyDataB,
+	}
+	journeyDataA := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
+	journeyA := model.Journey[testJourneyData]{
+		JID:                 "some-uuid",
+		CurrentStage:        "StateA",
+		LastCheckpointStage: "StateB",
+		Data:                journeyDataA,
+	}
+
+	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyB, nil).Times(1)
+	suite.mockStateHandler.EXPECT().
+		Revisit(suite.ctx, "some-uuid", journeyDataB).
+		Return(expectedResponseDataA, journeyDataA, nil).
+		Times(1)
+	suite.mockJourneyStore.EXPECT().
+		Save(suite.ctx, journeyA).
+		Return(nil).
+		Times(1)
+
+	response, err := service.Execute(suite.ctx, model.FsmRequest{JID: "some-uuid", Event: "Back"})
+
+	suite.Equal(
+		model.FsmResponse{
+			JID: "some-uuid", NextScreen: "ScreenA", MetaData: "some-metadata", Data: expectedResponseDataA,
+		},
+		response,
+	)
+	suite.Nil(err)
+}
+
+func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserGoesBackToStateAFromStateB_AndCurrentStateDoesNotExist() {
+	initState := model.FsmState{
+		Name:                "Init",
+		NextScreen:          "InitScreen",
+		StateHandler:        suite.mockStateHandler,
+		IsCheckpoint:        true,
+		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
+	}
+	nonInitStates := []model.FsmState{
+		{
+			Name:                "StateA",
+			StateHandler:        suite.mockStateHandler,
+			NextScreen:          "ScreenA",
+			MetaData:            "some-metadata",
+			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateB"}},
+		},
+		{
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			IsCheckpoint: true,
+			NextAvailableEvents: []model.NextAvailableEvent{
+				{Event: "Back", DestinationStateName: "StateA"},
+				{Event: "Next", DestinationStateName: "StateC"},
+			},
+		},
+		{
+			Name:         "StateC",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenC",
+		},
+	}
+
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	suite.Nil(err)
+
+	expectedError := fsmErrors.InternalSystemError("cannot find next state")
+	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
+	journeyB := model.Journey[testJourneyData]{
+		JID:                 "some-uuid",
+		CurrentStage:        "StateX",
+		LastCheckpointStage: "StateB",
+		Data:                journeyDataB,
+	}
+
+	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyB, nil).Times(1)
+
+	response, err := service.Execute(suite.ctx, model.FsmRequest{JID: "some-uuid", Event: "Back"})
+
+	suite.Empty(response)
+	suite.Equal(expectedError, err)
+}
+
+func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserGoesBackToStateAFromStateB_AndNextStateDoesNotExist() {
+	initState := model.FsmState{
+		Name:                "Init",
+		NextScreen:          "InitScreen",
+		StateHandler:        suite.mockStateHandler,
+		IsCheckpoint:        true,
+		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
+	}
+	nonInitStates := []model.FsmState{
+		{
+			Name:                "StateA",
+			StateHandler:        suite.mockStateHandler,
+			NextScreen:          "ScreenA",
+			MetaData:            "some-metadata",
+			NextAvailableEvents: []model.NextAvailableEvent{{Event: "INTERNAL_Next", DestinationStateName: "StateB"}},
+		},
+		{
+			Name:         "StateB",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenB",
+			IsCheckpoint: true,
+			NextAvailableEvents: []model.NextAvailableEvent{
+				{Event: "Back", DestinationStateName: "StateX"},
+				{Event: "Next", DestinationStateName: "StateC"},
+			},
+		},
+		{
+			Name:         "StateC",
+			StateHandler: suite.mockStateHandler,
+			NextScreen:   "ScreenC",
+		},
+	}
+
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	suite.Nil(err)
+
+	expectedError := fsmErrors.InternalSystemError("cannot find next state")
+	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
+	journeyB := model.Journey[testJourneyData]{
+		JID:                 "some-uuid",
+		CurrentStage:        "StateB",
+		LastCheckpointStage: "StateB",
+		Data:                journeyDataB,
+	}
+
+	suite.mockJourneyStore.EXPECT().Get(suite.ctx, "some-uuid").Return(journeyB, nil).Times(1)
+
+	response, err := service.Execute(suite.ctx, model.FsmRequest{JID: "some-uuid", Event: "Back"})
+
+	suite.Empty(response)
+	suite.Equal(expectedError, err)
+}
