@@ -32,7 +32,7 @@ func NewFsmService[T any](initialState model.FsmState, nonInitStates []model.Fsm
 	var finalStateName string
 	for _, state := range nonInitStates {
 		fsmStateMap[state.Name] = state
-		if len(state.NextAvailableEvents) == 0 {
+		if len(state.NextAvailableEvents) == 0 || (len(state.NextAvailableEvents) == 1 && state.NextAvailableEvents[0].Event == constants.EventNameBack) {
 			if finalStateName != "" {
 				return fsmService[T]{}, nuErrors.InternalSystemError(ctx).WithMessage("multiple final states found")
 			}
