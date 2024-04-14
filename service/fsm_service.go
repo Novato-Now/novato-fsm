@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Novato-Now/novato-fsm/constants"
+	fsmErrors "github.com/Novato-Now/novato-fsm/errors"
 	nuConstants "github.com/Novato-Now/novato-utils/constants"
 	nuErrors "github.com/Novato-Now/novato-utils/errors"
-	"github.com/thevibegod/fsm/constants"
-	fsmErrors "github.com/thevibegod/fsm/errors"
 
-	journeystore "github.com/thevibegod/fsm/journey_store"
-	"github.com/thevibegod/fsm/model"
+	journeystore "github.com/Novato-Now/novato-fsm/journey_store"
+	"github.com/Novato-Now/novato-fsm/model"
 )
 
 //go:generate mockgen -destination=../mocks/mock_fsm_service.go -package=mocks -source=fsm_service.go

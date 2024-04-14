@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
+	fsmErrors "github.com/Novato-Now/novato-fsm/errors"
+	"github.com/Novato-Now/novato-fsm/mocks"
+	"github.com/Novato-Now/novato-fsm/model"
 	"github.com/Novato-Now/novato-utils/constants"
 	nuErrors "github.com/Novato-Now/novato-utils/errors"
 	"github.com/stretchr/testify/suite"
-	fsmErrors "github.com/thevibegod/fsm/errors"
-	"github.com/thevibegod/fsm/mocks"
-	"github.com/thevibegod/fsm/model"
 	"go.uber.org/mock/gomock"
 )
 

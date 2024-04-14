@@ -1,6 +1,6 @@
 package model
 
-import "github.com/thevibegod/fsm/state_handler"
+import "github.com/Novato-Now/novato-fsm/state_handler"
 
 type FsmState struct {
 	Name                string

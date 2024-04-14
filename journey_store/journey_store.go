@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Novato-Now/novato-fsm/errors"
+	"github.com/Novato-Now/novato-fsm/model"
 	novato_errors "github.com/Novato-Now/novato-utils/errors"
-	"github.com/thevibegod/fsm/errors"
-	"github.com/thevibegod/fsm/model"
 
 	"github.com/google/uuid"
 )

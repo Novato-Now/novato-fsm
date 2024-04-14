@@ -3,7 +3,7 @@ package journeystore
 import (
 	"context"
 
-	"github.com/thevibegod/fsm/model"
+	"github.com/Novato-Now/novato-fsm/model"
 )
 
 //go:generate mockgen -destination=../mocks/mock_key_value_store.go -package=mocks -source=key_value_store.go

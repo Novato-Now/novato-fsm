@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	model "github.com/thevibegod/fsm/model"
+	model "github.com/Novato-Now/novato-fsm/model"
 	gomock "go.uber.org/mock/gomock"
 )
 
