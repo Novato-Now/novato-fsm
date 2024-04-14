@@ -65,7 +65,7 @@ func (suite *journeyStoreTestSuite) TestCreate_ShouldReturnError_WhenKeyValueSto
 	journey, err := suite.journeyStore.Create(suite.ctx)
 
 	suite.Empty(journey)
-	suite.Equal(novato_errors.InternalSystemError(suite.ctx).WithMessage("some-error"), err)
+	suite.Equal(novato_errors.InternalSystemError(suite.ctx), err)
 }
 
 func (suite *journeyStoreTestSuite) TestGet_ShouldReturnNoError_WhenKeyValueStoreReturnsNoError() {
@@ -104,7 +104,7 @@ func (suite *journeyStoreTestSuite) TestGet_ShouldReturnError_WhenKeyValueStoreR
 	journey, err := suite.journeyStore.Get(suite.ctx, "new-uuid")
 
 	suite.Empty(journey)
-	suite.Equal(novato_errors.InternalSystemError(suite.ctx).WithMessage("some-error"), err)
+	suite.Equal(novato_errors.InternalSystemError(suite.ctx), err)
 }
 
 func (suite *journeyStoreTestSuite) TestSave_ShouldReturnNoError_WhenKeyValueStoreReturnsNoError() {
@@ -131,7 +131,7 @@ func (suite *journeyStoreTestSuite) TestSave_ShouldReturnError_WhenKeyValueStore
 
 	err := suite.journeyStore.Save(suite.ctx, journey)
 
-	suite.Equal(novato_errors.InternalSystemError(suite.ctx).WithMessage("some-error"), err)
+	suite.Equal(novato_errors.InternalSystemError(suite.ctx), err)
 }
 
 func (suite *journeyStoreTestSuite) TestDelete_ShouldReturnNoError_WhenKeyValueStoreReturnsNoError() {
@@ -154,5 +154,5 @@ func (suite *journeyStoreTestSuite) TestDelete_ShouldReturnError_WhenKeyValueSto
 
 	err := suite.journeyStore.Delete(suite.ctx, "new-uuid")
 
-	suite.Equal(novato_errors.InternalSystemError(suite.ctx).WithMessage("some-error"), err)
+	suite.Equal(novato_errors.InternalSystemError(suite.ctx), err)
 }

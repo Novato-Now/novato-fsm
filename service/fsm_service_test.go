@@ -177,7 +177,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 	response, err := service.Execute(suite.ctx, model.FsmRequest{Event: "StartNew"})
 
 	suite.Empty(response)
-	suite.Equal(fsmErrors.BypassError().WithMessage("invalid journey error: wrong event"), err)
+	suite.Equal(fsmErrors.BypassError(), err)
 }
 
 func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNewJourneyAndStoreCreateFails() {
@@ -439,7 +439,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 	response, err := service.Execute(suite.ctx, model.FsmRequest{JID: "some-uuid", Event: "NextEvent", Data: request})
 
 	suite.Empty(response)
-	suite.Equal(fsmErrors.BypassError().WithMessage("invalid event NextEvent for state Init"), err)
+	suite.Equal(fsmErrors.BypassError(), err)
 }
 
 func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserTransitionsToStateBFromInit() {
@@ -566,7 +566,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 }
 
 func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransitionsToStateBFromInit_DueToInvalidStateConfiguration() {
-	expectedError := nuErrors.InternalSystemError(suite.ctx).WithMessage("cannot find next state")
+	expectedError := nuErrors.InternalSystemError(suite.ctx)
 
 	initState := model.FsmState{
 		Name:                "Init",
@@ -810,7 +810,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserResumesJ
 	response, err := service.Execute(suite.ctx, model.FsmRequest{JID: "some-uuid", Event: "Resume"})
 
 	suite.Empty(response)
-	suite.Equal(nuErrors.InternalSystemError(suite.ctx).WithMessage("cannot find next state"), err)
+	suite.Equal(nuErrors.InternalSystemError(suite.ctx), err)
 }
 
 func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserGoesBackToStateAFromStateB() {
@@ -922,7 +922,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserGoesBack
 	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
 	suite.Nil(err)
 
-	expectedError := nuErrors.InternalSystemError(suite.ctx).WithMessage("cannot find next state")
+	expectedError := nuErrors.InternalSystemError(suite.ctx)
 	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
 	journeyB := model.Journey[testJourneyData]{
 		JID:                 "some-uuid",
@@ -975,7 +975,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserGoesBack
 	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
 	suite.Nil(err)
 
-	expectedError := nuErrors.InternalSystemError(suite.ctx).WithMessage("cannot find next state")
+	expectedError := nuErrors.InternalSystemError(suite.ctx)
 	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
 	journeyB := model.Journey[testJourneyData]{
 		JID:                 "some-uuid",
