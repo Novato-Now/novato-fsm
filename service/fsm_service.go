@@ -92,8 +92,8 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 			return
 		}
 		defer func() {
-			log.Info("Rolling back journey creation")
 			if err != nil {
+				log.Info("Rolling back journey creation")
 				deleteErr := fs.journeyStore.Delete(ctx, journey.JID)
 				if deleteErr != nil {
 					log.Warnf("Unable to delete journey for JID %s", journey.JID)
