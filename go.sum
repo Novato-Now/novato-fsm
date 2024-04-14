@@ -1,3 +1,7 @@
+github.com/Novato-Now/novato-utils v1.0.0 h1:RFXcJthmLOhk5Gbo7lt4i86jDZ+bItp6YHL1gEwd1Vk=
+github.com/Novato-Now/novato-utils v1.0.0/go.mod h1:Gn6VJIKtWTk501URv+8valsErDoaxJkQJG37ud+RlkU=
+github.com/Novato-Now/novato-utils v1.0.1 h1:HiykCYixzZtOvtgUGMah8LlQKDT7jxtNniqH3fZ9ZQY=
+github.com/Novato-Now/novato-utils v1.0.1/go.mod h1:Gn6VJIKtWTk501URv+8valsErDoaxJkQJG37ud+RlkU=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=

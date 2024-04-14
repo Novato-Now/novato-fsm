@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	errors "github.com/thevibegod/fsm/errors"
+	novato_errors "github.com/Novato-Now/novato-utils/errors"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,12 +41,12 @@ func (m *MockStateHandler) EXPECT() *MockStateHandlerMockRecorder {
 }
 
 // Revisit mocks base method.
-func (m *MockStateHandler) Revisit(ctx context.Context, jID string, journeyData any) (any, any, *errors.FsmError) {
+func (m *MockStateHandler) Revisit(ctx context.Context, jID string, journeyData any) (any, any, *novato_errors.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Revisit", ctx, jID, journeyData)
 	ret0, _ := ret[0].(any)
 	ret1, _ := ret[1].(any)
-	ret2, _ := ret[2].(*errors.FsmError)
+	ret2, _ := ret[2].(*novato_errors.Error)
 	return ret0, ret1, ret2
 }
 
@@ -57,13 +57,13 @@ func (mr *MockStateHandlerMockRecorder) Revisit(ctx, jID, journeyData any) *gomo
 }
 
 // Visit mocks base method.
-func (m *MockStateHandler) Visit(ctx context.Context, jID string, journeyData, data any) (any, any, string, *errors.FsmError) {
+func (m *MockStateHandler) Visit(ctx context.Context, jID string, journeyData, data any) (any, any, string, *novato_errors.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Visit", ctx, jID, journeyData, data)
 	ret0, _ := ret[0].(any)
 	ret1, _ := ret[1].(any)
 	ret2, _ := ret[2].(string)
-	ret3, _ := ret[3].(*errors.FsmError)
+	ret3, _ := ret[3].(*novato_errors.Error)
 	return ret0, ret1, ret2, ret3
 }
 

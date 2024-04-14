@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	errors "github.com/thevibegod/fsm/errors"
+	novato_errors "github.com/Novato-Now/novato-utils/errors"
 	model "github.com/thevibegod/fsm/model"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,11 +42,11 @@ func (m *MockFsmService[T]) EXPECT() *MockFsmServiceMockRecorder[T] {
 }
 
 // Execute mocks base method.
-func (m *MockFsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (model.FsmResponse, *errors.FsmError) {
+func (m *MockFsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (model.FsmResponse, *novato_errors.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", ctx, request)
 	ret0, _ := ret[0].(model.FsmResponse)
-	ret1, _ := ret[1].(*errors.FsmError)
+	ret1, _ := ret[1].(*novato_errors.Error)
 	return ret0, ret1
 }
 

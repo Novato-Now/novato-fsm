@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	errors "github.com/thevibegod/fsm/errors"
+	novato_errors "github.com/Novato-Now/novato-utils/errors"
 	model "github.com/thevibegod/fsm/model"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -42,11 +42,11 @@ func (m *MockJourneyStore[T]) EXPECT() *MockJourneyStoreMockRecorder[T] {
 }
 
 // Create mocks base method.
-func (m *MockJourneyStore[T]) Create(ctx context.Context) (model.Journey[T], *errors.FsmError) {
+func (m *MockJourneyStore[T]) Create(ctx context.Context) (model.Journey[T], *novato_errors.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx)
 	ret0, _ := ret[0].(model.Journey[T])
-	ret1, _ := ret[1].(*errors.FsmError)
+	ret1, _ := ret[1].(*novato_errors.Error)
 	return ret0, ret1
 }
 
@@ -57,10 +57,10 @@ func (mr *MockJourneyStoreMockRecorder[T]) Create(ctx any) *gomock.Call {
 }
 
 // Delete mocks base method.
-func (m *MockJourneyStore[T]) Delete(ctx context.Context, jID string) *errors.FsmError {
+func (m *MockJourneyStore[T]) Delete(ctx context.Context, jID string) *novato_errors.Error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", ctx, jID)
-	ret0, _ := ret[0].(*errors.FsmError)
+	ret0, _ := ret[0].(*novato_errors.Error)
 	return ret0
 }
 
@@ -71,11 +71,11 @@ func (mr *MockJourneyStoreMockRecorder[T]) Delete(ctx, jID any) *gomock.Call {
 }
 
 // Get mocks base method.
-func (m *MockJourneyStore[T]) Get(ctx context.Context, jID string) (model.Journey[T], *errors.FsmError) {
+func (m *MockJourneyStore[T]) Get(ctx context.Context, jID string) (model.Journey[T], *novato_errors.Error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", ctx, jID)
 	ret0, _ := ret[0].(model.Journey[T])
-	ret1, _ := ret[1].(*errors.FsmError)
+	ret1, _ := ret[1].(*novato_errors.Error)
 	return ret0, ret1
 }
 
@@ -86,10 +86,10 @@ func (mr *MockJourneyStoreMockRecorder[T]) Get(ctx, jID any) *gomock.Call {
 }
 
 // Save mocks base method.
-func (m *MockJourneyStore[T]) Save(ctx context.Context, journey model.Journey[T]) *errors.FsmError {
+func (m *MockJourneyStore[T]) Save(ctx context.Context, journey model.Journey[T]) *novato_errors.Error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Save", ctx, journey)
-	ret0, _ := ret[0].(*errors.FsmError)
+	ret0, _ := ret[0].(*novato_errors.Error)
 	return ret0
 }
 

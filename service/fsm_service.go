@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	nuConstants "github.com/Novato-Now/novato-utils/constants"
+	nuErrors "github.com/Novato-Now/novato-utils/errors"
 	"github.com/thevibegod/fsm/constants"
 	fsmErrors "github.com/thevibegod/fsm/errors"
 
@@ -14,7 +16,7 @@ import (
 //go:generate mockgen -destination=../mocks/mock_fsm_service.go -package=mocks -source=fsm_service.go
 
 type FsmService[T any] interface {
-	Execute(ctx context.Context, request model.FsmRequest) (response model.FsmResponse, err *fsmErrors.FsmError)
+	Execute(ctx context.Context, request model.FsmRequest) (response model.FsmResponse, err *nuErrors.Error)
 }
 
 type fsmService[T any] struct {
@@ -24,21 +26,22 @@ type fsmService[T any] struct {
 	journeyStore     journeystore.JourneyStore[T]
 }
 
-func NewFsmService[T any](initialState model.FsmState, nonInitStates []model.FsmState, journeyStore journeystore.JourneyStore[T]) (FsmService[T], *fsmErrors.FsmError) {
+func NewFsmService[T any](initialState model.FsmState, nonInitStates []model.FsmState, journeyStore journeystore.JourneyStore[T]) (FsmService[T], *nuErrors.Error) {
+	ctx := context.WithValue(context.Background(), nuConstants.ServiceNameKey, "FSM")
 	fsmStateMap := make(map[string]model.FsmState)
 	var finalStateName string
 	for _, state := range nonInitStates {
 		fsmStateMap[state.Name] = state
 		if len(state.NextAvailableEvents) == 0 {
 			if finalStateName != "" {
-				return fsmService[T]{}, fsmErrors.InternalSystemError("multiple final states found")
+				return fsmService[T]{}, nuErrors.InternalSystemError(ctx).WithMessage("multiple final states found")
 			}
 			finalStateName = state.Name
 		}
 	}
 
 	if finalStateName == "" {
-		return fsmService[T]{}, fsmErrors.InternalSystemError("no final state found")
+		return fsmService[T]{}, nuErrors.InternalSystemError(ctx).WithMessage("no final state found")
 	}
 
 	fsmStateMap[initialState.Name] = initialState
@@ -46,7 +49,7 @@ func NewFsmService[T any](initialState model.FsmState, nonInitStates []model.Fsm
 	return fsmService[T]{states: fsmStateMap, journeyStore: journeyStore, initialStateName: initialState.Name, finalStateName: finalStateName}, nil
 }
 
-func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (response model.FsmResponse, err *fsmErrors.FsmError) {
+func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (response model.FsmResponse, err *nuErrors.Error) {
 	var journey model.Journey[T]
 
 	var currentState, nextState, lastExecutedState model.FsmState
@@ -80,7 +83,7 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 				_ = fs.journeyStore.Delete(ctx, journey.JID)
 			}
 		}()
-		lastExecutedState, err = fs.getState(journey.CurrentStage)
+		lastExecutedState, err = fs.getState(ctx, journey.CurrentStage)
 		if err != nil {
 			return
 		}
@@ -90,11 +93,11 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 	}
 
 	for !finishStateTransition {
-		currentState, err = fs.getState(journey.CurrentStage)
+		currentState, err = fs.getState(ctx, journey.CurrentStage)
 		if err != nil {
 			return
 		}
-		nextState, err = fs.getNextState(currentState, nextEvent)
+		nextState, err = fs.getNextState(ctx, currentState, nextEvent)
 		if err != nil {
 			return
 		}
@@ -116,24 +119,24 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 	return fs.loadFsmResponse(journey, lastExecutedState, nextStateData), nil
 }
 
-func (fs fsmService[T]) getState(stateName string) (model.FsmState, *fsmErrors.FsmError) {
+func (fs fsmService[T]) getState(ctx context.Context, stateName string) (model.FsmState, *nuErrors.Error) {
 	state, ok := fs.states[stateName]
 	if !ok {
-		return model.FsmState{}, fsmErrors.InternalSystemError("cannot find next state")
+		return model.FsmState{}, nuErrors.InternalSystemError(ctx).WithMessage("cannot find next state")
 	}
 	return state, nil
 }
 
-func (fs fsmService[T]) getNextState(currentState model.FsmState, event string) (model.FsmState, *fsmErrors.FsmError) {
+func (fs fsmService[T]) getNextState(ctx context.Context, currentState model.FsmState, event string) (model.FsmState, *nuErrors.Error) {
 	for _, nextAvailableEvent := range currentState.NextAvailableEvents {
 		if nextAvailableEvent.Event == event {
-			return fs.getState(nextAvailableEvent.DestinationStateName)
+			return fs.getState(ctx, nextAvailableEvent.DestinationStateName)
 		}
 	}
-	return model.FsmState{}, fsmErrors.ByPassError(fmt.Sprintf("invalid event %s for state %s", event, currentState.Name))
+	return model.FsmState{}, fsmErrors.BypassError().WithMessage(fmt.Sprintf("invalid event %s for state %s", event, currentState.Name))
 }
 
-func (fs fsmService[T]) handleStateVisit(ctx context.Context, state model.FsmState, journey model.Journey[T], data any) (model.Journey[T], any, string, *fsmErrors.FsmError) {
+func (fs fsmService[T]) handleStateVisit(ctx context.Context, state model.FsmState, journey model.Journey[T], data any) (model.Journey[T], any, string, *nuErrors.Error) {
 	resp, updatedJourneyData, nextEvent, err := state.StateHandler.Visit(ctx, journey.JID, journey.Data, data)
 	if err != nil {
 		return model.Journey[T]{}, nil, "", err
@@ -146,7 +149,7 @@ func (fs fsmService[T]) handleStateVisit(ctx context.Context, state model.FsmSta
 	return journey, resp, nextEvent, nil
 }
 
-func (fs fsmService[T]) handleStateRevisit(ctx context.Context, state model.FsmState, journey model.Journey[T]) (model.Journey[T], any, *fsmErrors.FsmError) {
+func (fs fsmService[T]) handleStateRevisit(ctx context.Context, state model.FsmState, journey model.Journey[T]) (model.Journey[T], any, *nuErrors.Error) {
 	resp, updatedJourneyData, err := state.StateHandler.Revisit(ctx, journey.JID, journey.Data)
 	if err != nil {
 		return model.Journey[T]{}, nil, err
@@ -159,31 +162,31 @@ func (fs fsmService[T]) handleStateRevisit(ctx context.Context, state model.FsmS
 	return journey, resp, nil
 }
 
-func (fs fsmService[T]) handleResumeJourney(ctx context.Context, journey model.Journey[T]) (model.FsmResponse, *fsmErrors.FsmError) {
-	state, err := fs.getState(journey.LastCheckpointStage)
+func (fs fsmService[T]) handleResumeJourney(ctx context.Context, journey model.Journey[T]) (model.FsmResponse, *nuErrors.Error) {
+	state, err := fs.getState(ctx, journey.LastCheckpointStage)
 	if err != nil {
 		return model.FsmResponse{}, err
 	}
 	return fs.revisitAndSave(ctx, journey, state)
 }
 
-func (fs fsmService[T]) handleBackJourney(ctx context.Context, journey model.Journey[T]) (model.FsmResponse, *fsmErrors.FsmError) {
-	state, err := fs.getState(journey.CurrentStage)
+func (fs fsmService[T]) handleBackJourney(ctx context.Context, journey model.Journey[T]) (model.FsmResponse, *nuErrors.Error) {
+	state, err := fs.getState(ctx, journey.CurrentStage)
 	if err != nil {
 		return model.FsmResponse{}, err
 	}
-	nextState, err := fs.getNextState(state, constants.EventNameBack)
+	nextState, err := fs.getNextState(ctx, state, constants.EventNameBack)
 	if err != nil {
 		return model.FsmResponse{}, err
 	}
 	return fs.revisitAndSave(ctx, journey, nextState)
 }
 
-func (fs fsmService[T]) startNewJourney(ctx context.Context, data any, event string) (model.Journey[T], any, string, *fsmErrors.FsmError) {
+func (fs fsmService[T]) startNewJourney(ctx context.Context, data any, event string) (model.Journey[T], any, string, *nuErrors.Error) {
 	if event != constants.EventNameStart {
-		return model.Journey[T]{}, nil, "", fsmErrors.ByPassError("invalid journey error: wrong event")
+		return model.Journey[T]{}, nil, "", fsmErrors.BypassError().WithMessage("invalid journey error: wrong event")
 	}
-	initState, err := fs.getState(fs.initialStateName)
+	initState, err := fs.getState(ctx, fs.initialStateName)
 	if err != nil {
 		return model.Journey[T]{}, nil, "", err
 	}
@@ -201,7 +204,7 @@ func (fs fsmService[T]) startNewJourney(ctx context.Context, data any, event str
 	return journey, resp, nextEvent, nil
 }
 
-func (fs fsmService[T]) revisitAndSave(ctx context.Context, journey model.Journey[T], state model.FsmState) (model.FsmResponse, *fsmErrors.FsmError) {
+func (fs fsmService[T]) revisitAndSave(ctx context.Context, journey model.Journey[T], state model.FsmState) (model.FsmResponse, *nuErrors.Error) {
 	journey, resp, err := fs.handleStateRevisit(ctx, state, journey)
 	if err != nil {
 		return model.FsmResponse{}, err
