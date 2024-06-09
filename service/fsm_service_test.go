@@ -58,7 +58,7 @@ func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnError_WhenNoFina
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 
 	suite.Empty(service)
 	suite.Equal(nuErrors.InternalSystemError(suite.ctx).WithMessage("no final state found"), err)
@@ -82,7 +82,7 @@ func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnError_WhenMultip
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 
 	suite.Empty(service)
 	suite.Equal(nuErrors.InternalSystemError(suite.ctx).WithMessage("multiple final states found"), err)
@@ -107,7 +107,7 @@ func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnNoError_WhenStat
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 
 	suite.NotEmpty(service)
 	suite.Nil(err)
@@ -133,7 +133,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserStarts
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	updatedJourneyData := testJourneyData{InitStateCompleted: true}
@@ -171,7 +171,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	response, err := service.Execute(suite.ctx, model.FsmRequest{Event: "StartNew"})
@@ -202,7 +202,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	suite.mockJourneyStore.EXPECT().
@@ -238,7 +238,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	updatedJourneyData := testJourneyData{InitStateCompleted: true}
@@ -279,7 +279,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserStartsNe
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	suite.mockJourneyStore.EXPECT().
@@ -322,7 +322,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserTransi
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	journeyData := testJourneyData{InitStateCompleted: true}
@@ -387,7 +387,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	request := struct{ FieldA bool }{FieldA: true}
@@ -422,7 +422,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	journeyData := testJourneyData{InitStateCompleted: true}
@@ -464,7 +464,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserTransi
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	journeyDataInit := testJourneyData{InitStateCompleted: true}
@@ -535,7 +535,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	journeyDataInit := testJourneyData{InitStateCompleted: true}
@@ -589,7 +589,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserTransiti
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	journeyDataInit := testJourneyData{InitStateCompleted: true}
@@ -638,7 +638,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserResume
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	expectedResponseDataB := struct{ ResponseFieldB bool }{ResponseFieldB: true}
@@ -696,7 +696,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserResumesJ
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
@@ -744,7 +744,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserResumesJ
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	expectedResponseDataB := struct{ ResponseFieldB bool }{ResponseFieldB: true}
@@ -794,7 +794,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserResumesJ
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	journeyDataB := testJourneyData{InitStateCompleted: true, StateACompleted: true, StateBCompleted: true}
@@ -846,7 +846,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnNoError_WhenUserGoesBa
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	expectedResponseDataA := struct{ ResponseFieldA bool }{ResponseFieldA: true}
@@ -919,7 +919,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserGoesBack
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	expectedError := nuErrors.InternalSystemError(suite.ctx)
@@ -972,7 +972,7 @@ func (suite *fsmServiceTestSuite) TestExecute_ShouldReturnError_WhenUserGoesBack
 		},
 	}
 
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore)
+	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
 	suite.Nil(err)
 
 	expectedError := nuErrors.InternalSystemError(suite.ctx)

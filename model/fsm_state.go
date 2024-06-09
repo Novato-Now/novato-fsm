@@ -1,6 +1,8 @@
 package model
 
-import "github.com/Novato-Now/novato-fsm/state_handler"
+import (
+	"github.com/Novato-Now/novato-fsm/state_handler"
+)
 
 type FsmState struct {
 	Name                string
@@ -14,4 +16,8 @@ type FsmState struct {
 type NextAvailableEvent struct {
 	Event                string
 	DestinationStateName string
+}
+
+type FsmHooks[T any] struct {
+	OnAfterSaveJourney func(Journey[T])
 }

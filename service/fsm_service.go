@@ -24,9 +24,15 @@ type fsmService[T any] struct {
 	initialStateName string
 	finalStateName   string
 	journeyStore     journeystore.JourneyStore[T]
+	hooks            model.FsmHooks[T]
 }
 
-func NewFsmService[T any](initialState model.FsmState, nonInitStates []model.FsmState, journeyStore journeystore.JourneyStore[T]) (FsmService[T], *nuErrors.Error) {
+func NewFsmService[T any](
+	initialState model.FsmState,
+	nonInitStates []model.FsmState,
+	journeyStore journeystore.JourneyStore[T],
+	hooks model.FsmHooks[T],
+) (FsmService[T], *nuErrors.Error) {
 	ctx := context.WithValue(context.Background(), nuConstants.ServiceNameKey, "FSM")
 	fsmStateMap := make(map[string]model.FsmState)
 	var finalStateName string
@@ -46,7 +52,13 @@ func NewFsmService[T any](initialState model.FsmState, nonInitStates []model.Fsm
 
 	fsmStateMap[initialState.Name] = initialState
 
-	return fsmService[T]{states: fsmStateMap, journeyStore: journeyStore, initialStateName: initialState.Name, finalStateName: finalStateName}, nil
+	return fsmService[T]{
+		states:           fsmStateMap,
+		journeyStore:     journeyStore,
+		initialStateName: initialState.Name,
+		finalStateName:   finalStateName,
+		hooks:            hooks,
+	}, nil
 }
 
 func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (response model.FsmResponse, err *nuErrors.Error) {
@@ -136,6 +148,9 @@ func (fs fsmService[T]) Execute(ctx context.Context, request model.FsmRequest) (
 	if err != nil {
 		log.Errorf("Unable to save journey. Error: %+v", err)
 		return
+	}
+	if fs.hooks.OnAfterSaveJourney != nil {
+		fs.hooks.OnAfterSaveJourney(journey)
 	}
 
 	return fs.loadFsmResponse(journey, lastExecutedState, nextStateData), nil
@@ -249,6 +264,10 @@ func (fs fsmService[T]) revisitAndSave(ctx context.Context, journey model.Journe
 		log.Errorf("Error from journey store. Error: %+v", err)
 		return model.FsmResponse{}, err
 	}
+	if fs.hooks.OnAfterSaveJourney != nil {
+		fs.hooks.OnAfterSaveJourney(journey)
+	}
+
 	return fs.loadFsmResponse(journey, state, resp), nil
 }
 
