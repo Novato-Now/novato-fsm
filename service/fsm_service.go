@@ -5,7 +5,6 @@ import (
 
 	"github.com/Novato-Now/novato-fsm/constants"
 	fsmErrors "github.com/Novato-Now/novato-fsm/errors"
-	nuConstants "github.com/Novato-Now/novato-utils/constants"
 	nuErrors "github.com/Novato-Now/novato-utils/errors"
 	"github.com/Novato-Now/novato-utils/logging"
 
@@ -22,7 +21,6 @@ type FsmService[T any] interface {
 type fsmService[T any] struct {
 	states           map[string]model.FsmState
 	initialStateName string
-	finalStateName   string
 	journeyStore     journeystore.JourneyStore[T]
 	hooks            model.FsmHooks[T]
 }
@@ -33,21 +31,9 @@ func NewFsmService[T any](
 	journeyStore journeystore.JourneyStore[T],
 	hooks model.FsmHooks[T],
 ) (FsmService[T], *nuErrors.Error) {
-	ctx := context.WithValue(context.Background(), nuConstants.ServiceNameKey, "FSM")
 	fsmStateMap := make(map[string]model.FsmState)
-	var finalStateName string
 	for _, state := range nonInitStates {
 		fsmStateMap[state.Name] = state
-		if len(state.NextAvailableEvents) == 0 || (len(state.NextAvailableEvents) == 1 && state.NextAvailableEvents[0].Event == constants.EventNameBack) {
-			if finalStateName != "" {
-				return fsmService[T]{}, nuErrors.InternalSystemError(ctx).WithMessage("multiple final states found")
-			}
-			finalStateName = state.Name
-		}
-	}
-
-	if finalStateName == "" {
-		return fsmService[T]{}, nuErrors.InternalSystemError(ctx).WithMessage("no final state found")
 	}
 
 	fsmStateMap[initialState.Name] = initialState
@@ -56,7 +42,6 @@ func NewFsmService[T any](
 		states:           fsmStateMap,
 		journeyStore:     journeyStore,
 		initialStateName: initialState.Name,
-		finalStateName:   finalStateName,
 		hooks:            hooks,
 	}, nil
 }

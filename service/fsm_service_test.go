@@ -38,56 +38,6 @@ func (suite *fsmServiceTestSuite) SetupTest() {
 	suite.ctx = context.WithValue(context.Background(), constants.ServiceNameKey, "FSM")
 }
 
-func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnError_WhenNoFinalStateIsFound() {
-	initState := model.FsmState{
-		Name:                "Init",
-		StateHandler:        suite.mockStateHandler,
-		IsCheckpoint:        true,
-		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
-	}
-	nonInitStates := []model.FsmState{
-		{
-			Name:                "StateA",
-			StateHandler:        suite.mockStateHandler,
-			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateB"}},
-		},
-		{
-			Name:                "StateB",
-			StateHandler:        suite.mockStateHandler,
-			NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
-		},
-	}
-
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
-
-	suite.Empty(service)
-	suite.Equal(nuErrors.InternalSystemError(suite.ctx).WithMessage("no final state found"), err)
-}
-
-func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnError_WhenMultipleFinalStatesAreFound() {
-	initState := model.FsmState{
-		Name:                "Init",
-		StateHandler:        suite.mockStateHandler,
-		IsCheckpoint:        true,
-		NextAvailableEvents: []model.NextAvailableEvent{{Event: "Next", DestinationStateName: "StateA"}},
-	}
-	nonInitStates := []model.FsmState{
-		{
-			Name:         "StateA",
-			StateHandler: suite.mockStateHandler,
-		},
-		{
-			Name:         "StateB",
-			StateHandler: suite.mockStateHandler,
-		},
-	}
-
-	service, err := NewFsmService(initState, nonInitStates, suite.mockJourneyStore, model.FsmHooks[testJourneyData]{})
-
-	suite.Empty(service)
-	suite.Equal(nuErrors.InternalSystemError(suite.ctx).WithMessage("multiple final states found"), err)
-}
-
 func (suite *fsmServiceTestSuite) TestNewFsmService_ShouldReturnNoError_WhenStatesAreValid() {
 	initState := model.FsmState{
 		Name:                "Init",
